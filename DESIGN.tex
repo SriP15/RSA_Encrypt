@@ -1,0 +1,398 @@
+\documentclass[11pt]{article}
+\usepackage{fullpage}
+\usepackage{fourier}
+\usepackage{xspace}
+\usepackage{booktabs}
+\usepackage{wrapfig}
+
+
+\title{Assignment 5: \emph{Design}}
+\author{Sriramya Prayaga}
+\date{\today}
+
+\begin{document} \maketitle
+
+\begin{abstract}
+\begin{center}
+	In this document, I will be describing my design process for Assignment 5. Assignment 5 is essentially simulating an RSA encryption/decryption algorithm --- that is, we need to take a text file, encrypt and decrypt it using randomly-generated public and private keys, and display the output (using command-line options).
+\end{center}
+\end{abstract}
+\section{Pseudocode/Structure}
+Because there are many moving parts to create the encryption and decryption algorithm, there are many files required for this assignment.
+\subsection{Random State File}
+In order to construct the keygen/encryption/decryption programs, we need to create a random state generator file (as many functions for this assignment will require the usage of random numbers.) This file is called randomstate.c, and consists of two functions: randstate\_init() and randstate\_clear(). As we are supposed to use the GMP library for this assignment, the functions in the random state file ---and all other files below --- should use and make calls to the relevant GMP random state functions (as described below). \begin{itemize}
+
+	\item randstate\_init(uint64\_t seed):  This file initializes a gmp\_randstate\_t type variable with the given uint64 seed. It uses the gmp\_randinit\_mt() for the random algorithm, and gmp\_randseed\_ui() for seeding. It also calls srandom() with the given seed.
+
+	\item randstate\_clear(void): frees memory that was used by randstate\_init().
+
+	The psuedocode for this is as follows: 
+
+\begin{verbatim}
+
+                initialize gmp_randstate_t state
+
+		void randstate_init(uint64_t seed) {
+			initialize random state with the Mersenne Twister algorithm
+			seed the function with given state and seed
+                        
+			seed srandom()
+		}
+
+		void randstate_clear(void) {
+			clear random state
+		}
+
+\end{verbatim}
+
+\end{itemize}
+\subsection{Number Theory File}
+The number theory file calculates important values for the RSA module (described later.) It has the following functions: pow\_mod(), make\_prime(), is\_prime(), gcd(), mod\_inverse(). The file with these functions is called numtheory.c.
+\begin{itemize}
+	\item pow\_mod(mpz\_t out, mpz\_t base, mpz\_t exponent, mpz\_t modulus): This function calculates the value of  $ {base} ^ {exponent} $, and stores it in out. The gist is that we are calculating the value of a number raised to a power in O(\( \log_{2}(n) \)) steps and using a modulus value to simplify large calculations.
+    \item is\_prime(mpz\_t n, uint64\_t iters): The pseudocode for this function is given in the Assignment 5 document, however, it essentially uses the Miller-Rabin test to check if a number is prime.
+    \item make\_prime(): This function generates random number, and calls is\_prime() to check for the number for primality.
+    \item gcd(mpz\_t d, mpz\_t a, mpz\_t b): This function computes the greatest common divisor of a and b. The gcd value is stored in d.
+    \item mod\_inverse(mpz\_t i, mpz\_t a, mpz\_t n): This pseudocode for this function has also been provided for us, and it computes the modular inverse of $a(\bmod {n})$ .
+\end{itemize}
+The pseudocode for this file is as shown below:
+\begin{verbatim}
+	void gcd(mpz_t d, mpz_t a, mpz_t b) {
+		while (b is not 0) {
+			mpz set d to b
+			mpz set b to a mod b
+			mpz set a to d
+		}
+		mpz set d to a
+	}
+
+	mod_inverse(mpz_t i, mpz_t a, mpz_t n) {
+		mpz set t2 to 1
+		mpz set r1 to n
+		mpz set r2 to a
+                
+		while (r2 is not 0) {
+			mpz set q to r1/r2
+			mpz set temp1 to r1
+			mpz set temp2 to r2
+			mpz set r1 to r2
+			mpz set temp2 to temp2 * q
+			mpz set temp1 to temp1 - temp2
+			mpz set r2 to temp1
+			mpz set temp1 to t1
+			mpz set temp2 to t2
+			mpz set t1 to t2
+			mpz set temp2 to temp2 * q
+			mpz set temp1 to temp1 - temp2
+			mpz set t2 to temp1
+		}
+
+		mpz set 1 to t1
+
+		if mpz r1 is greater than 1 {
+			mpz set 1 to 0
+		} else if mpz t1 is less than 0 {
+			mpz set t1 to t1 + n
+			mpz set i to t1
+		}
+	        clear mpz variables
+	}
+
+	void pow_mod(mpz_t out, mpz_t base, mpz_t exponent, mpz_t modulus) {
+		mpz set v to 1
+		mpz set p to base
+		mpz set exp to exponent
+
+		while (mpz exp is greater than 0) {
+			if (exp is odd) {
+				mpz set v to v * p
+				mpz set v to v * modulus
+			}
+			mpz set p to p * p
+			mpz set p to p mod modulus
+                        mpz set exp to exp/2
+		}
+		mpz set out to v
+		clear mpz variables
+	}
+
+	bool is_prime(mpz_t n, uint64_t iters) {
+		mpz set r to n - 1
+		mpz set two to 2
+
+		mpz set temp to n mod 2
+
+		if (mpz n < 2, n = 0, or n != 2) {
+			clear mpz variables
+			return false
+		}
+
+		if (mpz n = 2, or n = 3) {
+                        clear mpz variables
+                        return true
+                }
+
+		while (mpz r is even) {
+			mpz set r to r/2
+			mpz set s to s + 1
+		}
+
+		mpz set s to s - 1
+
+		for (i in the range of 1 to iters) {
+			set temp to temp - 3
+			create random number roll using state and temp with urandomm()
+			mpz set temp to temp + 1
+			mpz set roll to roll mod temp
+			mpz set roll to roll + 2
+
+			mpz set temp to n - 1
+
+			if (mpz y is not equal to 1 and y is not equal to temp) {
+				mpz set j to 1
+				while (mpz j <= s and mpz y != temp) {
+					call pow_mod(y, y, two, n)
+					
+					if (mpz y == 1) {
+						clear mpz variables
+						return false
+					}
+					mpz set j to j + 1
+				}
+				if (y != temp) {
+					clear mpz variables
+					return false
+				}
+			}
+		}
+		clear mpz variables
+		return true
+	}
+
+	void make_prime(mpz_t p, uint64_t bits, uint64_t iters) {
+		create random number using n, state, and bits with urandomb()
+		set test_prime = false;
+
+		while (test primes is false) {
+			create random number using n, state, and bits with urandomb()
+			mpz set offset to 2^bits
+			mpz set n to n + offset
+			set test_prime = is_prime(n, iters)
+		}
+		mpz set p to n
+		clear mpz variables
+	}
+\end{verbatim}
+
+
+\subsection{RSA Library File}
+
+Another integral file for this assignment is the RSA Library, which makes a public and private key, writes 
+to and reads from pbfiles/pvfiles, and encrypts and decrypts text files. It also signs the 
+message (and verifies the signature.) The functions in this file are: rsa\_make\_pub(),
+rsa\_write\_pub(), rsa\_read\_pub(), rsa\_make\_priv(), rsa\_write\_priv(), rsa\_read\_priv(),
+rsa\_encrypt(), rsa\_encrypt\_file(), rsa\_decrypt(),       
+
+rsa\_decrypt\_file(), rsa\_sign(), rsa\_verify().
+
+Note: for this file I created an lcm() helper function to avoid repeated computations.
+
+\begin{itemize}
+    \item rsa\_make\_pub(mpz\_t p, mpz\_t q, mpz\_t n, mpz\_t e, uint64\_t nbits, uint64\_t iters): This file discerns two large primes (p and q), calculates their product n, and the value of e, the public exponent. The pseudocode for this function is as below:
+    \begin{verbatim}
+        set p to a random() number of bits in the range [nbits/4, 3 * (nbits/4)]
+        set q = nbits - p
+
+	do {
+        	call make_prime(p, bits, iters) and make_prime(q, bits, iters)
+		mpz set n to p * q
+		set size to number of bits n has using mpz_sizeinbase()
+	}
+	while (size is less than nbits)
+
+        compute lcm_out to (p-1)(q-1)/gcm(p-1, q-1)
+        mpz set lcm_copy to lcm_out
+
+	do {
+		call mpz_urandomb() with e, state, and nbits
+		mpz set e_copy to e
+        	call gcd (temp, e_copy, e)
+		mpz set e_copy to e
+		mpz set lcm_out_copy to lcm_out
+	}
+	while (temp == 1)
+	clear mpz variables
+    \end{verbatim}
+    \item rsa\_write\_pub(mpz\_t n, mpz\_t e, mpz\_t s, char username[], FILE *pbfile): gmp\_fprintf() n, e, s (as hextrings), and username to the given public key
+	    pb file.
+    \item rsa\_read\_pub(mpz\_t n, mpz\_t e, mpz\_t s, char username[], FILE *pbfile): Read with gmp\_fscanf() n, e, s (as hextrings), and username from the given
+	    public key pb file.
+    \item void rsa\_make\_priv(mpz\_t d, mpz\_t e, mpz\_t p, mpz\_t q): This function creates the private key d. This is done as so:
+    \begin{verbatim}
+            call mod_inverse(d, e, ((p-1)(q-1))/gcd((p-1)(q-1)))
+    \end{verbatim}
+		As can be seen here, I calculated lcm for the third parameter of the function (using mpz variables). In reality, this will take more lines of
+		code to initialize all the variables.
+	\item rsa\_write\_priv(mpz\_t n, mpz\_t e, mpz\_t s, char username[], FILE *pbfile): Writes using gmp\_fprintf() n, e, s (as hextrings), and username to
+		the given private key pvfile.
+	\item rsa\_read\_priv(mpz\_t n, mpz\_t e, mpz\_t s, char username[], FILE *pbfile): Read n, e, s (as hextrings), and username using gmp\_fscanf()
+		from the given private key pvfile.
+    \item rsa\_encrypt(mpz\_t c, mpz\_t m, mpz\_t e, mpz\_t n): This function encrypts m. This is done as follows: 
+	    \begin{verbatim}
+            call pow_mod(cipher_message, m, e, n) to store encrypted
+            message in cipher_message
+    \end{verbatim}
+    \item rsa\_encrypt\_file(FILE *infile, FILE *outfile, mpz\_t n, mpz\_t e): This function encrypts the contents of infile in chunks of text. It is done as
+	    follows: \begin{verbatim}
+	    set k = to (mpz_sizeinbase(n,2) - 1) /8
+	    dynamically allocate k bytes of memory with calloc (pointer named block)
+	    set block[0] = 0xFF
+
+	    do {
+		    set j = fread(block + 1, size of a uint_8, k-1, infile)
+		    if j = 0 {
+	            	break
+	            }
+	    	    call mpz_import(message, j + 1, size of a uint_8, 1, 0, block)
+	            call rsa_encrypt(ciphertext, message, e, n)
+		    print ciphertext to outfile with gmp_fprintf()
+
+            }
+            while (j equals k - 1)
+	    clear mpz variables
+	    free block
+	    \end{verbatim}
+    \item rsa\_decrypt(mpz\_t c, mpz\_t m, mpz\_t e, mpz\_t n): This function encrypts m. This is done as follows:
+    \begin{verbatim}
+    call pow_mod(message, c, d, n) to store decrypted message in message.
+    \end{verbatim}
+    \item rsa\_decrypt\_file(FILE *infile, FILE *outfile, mpz\_t n, mpz\_t d): This function works similarly to the function above that encrypts the file -- that is,
+	    it decrypts the file in blocks. The pseudocode for this is as follows:
+	    \begin{verbatim}
+	    set k = to (mpz_sizeinbase(n,2) - 1) /8
+            dynamically allocate k bytes of memory with calloc (pointer named block)
+            initialize size_t j;
+
+	    while (the end of infile has not been reached) {
+		    call rsa_decrypt(message, ciphertext, d, n)
+		    call mpz_export(block, address of j, 1, size of a uint8_t, 1, 0, message)
+		    fwrite(block + 1, size of uint8_t j - 1, outfile)
+	    }
+	    clear mpz variables
+	    free block
+	    \end{verbatim}
+    \item rsa\_sign(mpz\_t s, mpz\_t m, mpz\_t d, mpz\_t n): This function creates an RSA signature. It is done as so :
+    \begin{verbatim}
+        call pow_mod(s, m, d, n) and store signature value in s.
+    \end{verbatim}
+    \item bool rsa\_verify(mpz\_t m, mpz\_t s, mpz\_t e, mpz\_t n): In order to verify that an RSA signature, we need to find the inverse modulus. It can be found by using the mod\_inverse() function:
+\begin{verbatim}
+        power_mod(val, s, e, n)
+        inverse_mod(t, val, n)
+        if m == t {
+            return true
+        }
+        else {
+            return false
+        }
+\end{verbatim}
+\end{itemize}
+\subsection{Key Generation File}
+This file generates the public and private keys for encryption/decryption. This file is called keygen.c. The function parses command line options to discern the parameters on how to generate the keys. This program calls on many functions mentioned in this document. The pseudocode for this function is as follows:
+\begin{verbatim}
+    set default command-line option values
+    Parse the command line options "b:i:n:d:s:hv" with getopt()
+    while command line options are given{
+       if cases 'b' or 'i' : reinitialize default bit value
+       or iteration values to user-given values
+       if case 'n' or case 'd': replace default key-files with user-given key files
+       if case 's' replace default seed with new seed
+       if case 'h': print usage message
+       if case 'v': store that verbose mode is true
+    }
+    open public and private key files with fopen()
+    call randstate_init(seed)
+
+    call rsa_make_pub(p, q, n, e, bits, iters)
+    call rsa_make_priv(d, e, p, q)
+
+    call getenv("USER") to get user's name
+    call rsa_sign()
+    make usernsme into a mpz_t with mpz_set_str()
+
+    write public, private keys to destination file
+
+    if verbose mode is true:
+       print verbose message
+
+    close opened files
+    clear random state
+    clear mpz_t variables
+\end{verbatim}
+\subsection{Encryptor File}
+This file encrypts a text file. The name of the file is encrypt.c. The function parses command line options to discern the parameters on how to encrypt a file. This program calls on many functions mentioned in this document. It prints the output of the file to the designated output file. The pseudocode for this file is as follows:
+\begin{verbatim}
+    set default command-line option values
+    Parse the command line options "o:i:n:hv" with getopt()
+    while command line options are given {
+       if case 'i' : initialize input file name for encryption
+       if case 'o' : initialize output file name
+       if case 'n' : specify public key-file
+       if case 'h': print usage message
+       if case 'v': store that verbose mode is true
+    }
+    open public key files with fopen()
+    call read_pub() to read public key-file
+
+    if verbose mode is true:
+       print verbose message
+
+    make usernsme into a mpz_t with mpz_set_str()
+    verify signature with rsa_verify()
+
+    scan n and e from public key file
+    call rsa_encrypt_file()
+
+    close public key file, input file and output file
+    clear mpz_t variables
+\end{verbatim}
+
+\subsection{Decryptor File}
+This file decrypts text in a file that has been encrypted with a certain public key. This program parses command line arguments to get the specifications on how to output the decryption text. This program calls on many functions mentioned in this document. The pseudocode for this file is as follows:
+\begin{verbatim}
+    set default command-line option values
+    Parse the command line options "o:i:n:hv" with getopt()
+    while command-line options are given {
+       if case 'i' : initialize input_file name for decryption
+       if case 'o' : initialize output file name
+       if case 'n' : specify private key-file
+       if case 'h': print usage message
+       if case 'v': store that verbose mode is true
+    }
+    open private key file
+
+    if verbose mode is true:
+       print public exponent, and private key
+
+    scan n and d from private key-file
+    call rsa_decrypt_file(input_file, output_file, n, private_key )
+
+    close private key file, input file, and output file
+    clear mpz_t variables
+
+\end{verbatim}
+
+\section{Summary}
+The above functions and files all contribute to creating an RSA encryption algorithm. The public and private keys for this algorithm are generated in the key generator file (using the RSA Library, Numerical Theory, and Random State files), and the keys are used in the Encryption and Decryption files to encrypt and decrypt the text files.
+
+
+\end{document}
+
+
+
+
+
+
+
+
+
