@@ -1,4 +1,4 @@
-# Assignment 5: Public Key Cryptography
+#  Public Key Cryptography
 In this program, we create an RSA encryption algorithm that can encrypt/decrypt any text file using generated public and private keys. It does this through the usage of three program files: keygen.c, encrypt.c, and decrypt.c. 
 1. keygen.c generates the public and private keys. It writes the public and private keys to their respective files. 
 2. encrypt.c encrypts text in a given input file (using the public key file generated from keygen), and outputs the encrypted data to some output file.
